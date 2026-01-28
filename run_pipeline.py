@@ -29,7 +29,7 @@ def normalize_col(col: str) -> str:
     return col.strip().lower()
 
 def load_master(path):
-    df = pd.read_excel(path, header=7)
+    df = pd.read_excel(path , header=7)
 
     df = df.ffill(axis=1)
     df = df.ffill(axis=0)
@@ -39,9 +39,6 @@ def load_master(path):
         print(repr(c))
 
     df.columns = [normalize_col(c) for c in df.columns]
-
-    print("\n=== NORMALIZED COLUMNS ===")
-    print(df.columns.tolist())
 
     return df
 
@@ -54,6 +51,7 @@ def detect_header_row(path, keywords, max_rows=30):
     preview = pd.read_excel(path, header=None, nrows=max_rows)
 
     keywords = [k.lower() for k in keywords]
+
 
     for idx, row in preview.iterrows():
         for cell in row:

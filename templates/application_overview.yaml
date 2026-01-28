@@ -4,3 +4,5 @@ columns:
   - Application Name
   - Application Categories
 
+filter:
+  - Company: BCP
