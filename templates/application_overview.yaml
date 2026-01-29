@@ -3,6 +3,7 @@ file_name: application_overview.xlsx
 columns:
   - Application Name
   - Application Categories
+  - Company
 
 filter:
-  - Company: BCP
+  Company: BCP

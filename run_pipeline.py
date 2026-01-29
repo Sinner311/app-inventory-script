@@ -29,7 +29,7 @@ def normalize_col(col: str) -> str:
     return col.strip().lower()
 
 def load_master(path):
-    df = pd.read_excel(path , header=7)
+    df = pd.read_excel(path , header=9)
 
     df = df.ffill(axis=1)
     df = df.ffill(axis=0)
@@ -110,7 +110,7 @@ def run(template_path):
 
     template = load_template(template_path)
 
-    # Load master (FIXED)
+    # Load master
     df = load_master(MASTER_FILE)
 
 
