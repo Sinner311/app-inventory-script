@@ -1,0 +1,31 @@
+output_folder: ABC
+
+outputs:
+
+  - file_name: A.xlsx
+    columns:
+      - Application Name
+      - Application Categories
+      - Status
+    filter:
+      Company: BCP 
+      Status: Active
+      Core Application: N
+
+  - file_name: B.xlsx
+    columns:
+      - Application Name
+      - Application Categories
+      - Service Organization
+    filter:
+      Company: BCP
+      Service Organization: On Cloud / Paas
+
+  - file_name: C.xlsx
+    columns:
+      - Application Name
+      - Core Application
+      - Company
+    filter:
+      Core Application: Y
+      DB: MySQL 8

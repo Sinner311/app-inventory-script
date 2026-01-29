@@ -42,37 +42,10 @@ def load_master(path):
 
     return df
 
-
-
-
-
-
-def detect_header_row(path, keywords, max_rows=30):
-    preview = pd.read_excel(path, header=None, nrows=max_rows)
-
-    keywords = [k.lower() for k in keywords]
-
-
-    for idx, row in preview.iterrows():
-        for cell in row:
-            if not isinstance(cell, str):
-                continue
-
-            cell_lower = cell.lower()
-
-            for k in keywords:
-                if k in cell_lower:
-                    return idx
-
-    raise ValueError("Header row not found (check header_keywords)")
-
-
 def normalize_value(val):
     if pd.isna(val):
         return ""
     return normalize_col(val)
-
-
 
 
 def apply_filter(df, filters):
@@ -106,39 +79,47 @@ def apply_filter(df, filters):
 # ---------- Main Process ----------
 def run(template_path):
     print(f"▶ Running template: {template_path}")
-    print("DEBUG MASTER_FILE =", MASTER_FILE)
 
     template = load_template(template_path)
 
-    # Load master
-    df = load_master(MASTER_FILE)
+    # Load master ONCE
+    df_master = load_master(MASTER_FILE)
 
-
-    # Apply filter
-    df = apply_filter(df, template.get("filter"))
-
-    # normalize template columns
-    template_columns = [normalize_col(c) for c in template["columns"]]
-
-    # Validate columns
-    for col in template_columns:
-        if col not in df.columns:
-            raise ValueError(f"Column not found in master: {col}")
-
-    # Select columns
-    df = df[template_columns]
-
-    # Prepare output folder
+    # Output folder (custom)
     template_name = os.path.splitext(os.path.basename(template_path))[0]
-    sub_folder = os.path.join(OUTPUT_DIR, template_name)
-    ensure_folder(sub_folder)
+    folder_name = template.get("output_folder", template_name)
+    output_base = os.path.join(OUTPUT_DIR, folder_name)
+    ensure_folder(output_base)
 
-    output_path = os.path.join(sub_folder, template["file_name"])
+    outputs = template.get("outputs", [])
 
-    df.to_excel(output_path, index=False)
+    if not outputs:
+        raise ValueError("No outputs defined in template")
 
-    print(f"File created: {output_path}")
-    print(f"Rows: {len(df)}")
+    for item in outputs:
+        print(f"  ➜ Creating file: {item['file_name']}")
+
+        df = df_master.copy()
+
+        # Apply filter
+        df = apply_filter(df, item.get("filter"))
+
+        # Normalize columns
+        template_columns = [normalize_col(c) for c in item["columns"]]
+
+        # Validate columns
+        for col in template_columns:
+            if col not in df.columns:
+                raise ValueError(f"Column not found in master: {col}")
+
+        # Select columns
+        df = df[template_columns]
+
+        # Write output
+        output_path = os.path.join(output_base, item["file_name"])
+        df.to_excel(output_path, index=False)
+
+        print(f"    ✔ Rows: {len(df)} → {output_path}")
 
 
     # ---------- Entry ----------

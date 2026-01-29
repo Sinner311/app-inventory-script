@@ -1,0 +1,27 @@
+output_folder: application_exports
+
+outputs:
+
+  - file_name: bcp_applications.xlsx
+    columns:
+      - Application Name
+      - Application Categories
+      - Company
+    filter:
+      Company: BCP
+
+  - file_name: scg_applications.xlsx
+    columns:
+      - Application Name
+      - Application Categories
+      - Company
+    filter:
+      Company: BSSS
+
+  - file_name: core_apps.xlsx
+    columns:
+      - Application Name
+      - Core Application
+      - Company
+    filter:
+      Core Application: Y

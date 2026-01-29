@@ -1,9 +1,12 @@
-file_name: application_overview.xlsx
+output_folder: application_overview
 
-columns:
-  - Application Name
-  - Application Categories
-  - Company
+outputs:
 
-filter:
-  Company: BCP
+  - file_name: application_overview.xlsx
+    columns:
+      - Application Name
+      - Application Categories
+      - Company
+    filter:
+      Company: BCP
+      Application Categories: Business Application
