@@ -15,6 +15,32 @@ def load_template(path):
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
+def validate_template(template: dict):
+    if "outputs" not in template:
+        raise ValueError("Template missing 'outputs'")
+
+    if not isinstance(template["outputs"], list):
+        raise ValueError("'outputs' must be a list")
+
+    for i, output in enumerate(template["outputs"]):
+        prefix = f"outputs[{i}]"
+
+        required_keys = ["file_name", "columns"]
+
+        for k in required_keys:
+            if k not in output:
+                raise ValueError(f"{prefix} missing '{k}'")
+
+        if not isinstance(output["columns"], list):
+            raise ValueError(f"{prefix}.columns must be a list")
+
+        if "filter" in output and not isinstance(output["filter"], dict):
+            raise ValueError(f"{prefix}.filter must be a dict")
+        
+        
+
+
+
 def ensure_folder(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -66,12 +92,116 @@ def apply_filter(df, filters):
             if "in" in condition:
                 values = [normalize_value(v) for v in condition["in"]]
                 df = df[series.isin(values)]
+
             elif "neq" in condition:
                 df = df[series != normalize_value(condition["neq"])]
+
+            elif "contains" in condition:
+                keyword = normalize_value(condition["contains"])
+                df = df[series.str.contains(keyword, na=False)]
+
+            else:
+                raise ValueError(
+                    f"Unsupported filter operator for column '{raw_col}': {condition}"
+                )
+
         else:
             df = df[series == normalize_value(condition)]
 
     return df
+
+
+
+def analyze_filters(df, filters):
+    if not filters:
+        return
+
+    working_df = df.copy()
+    start_rows = len(working_df)
+
+    print(f"\n🔍 Filter analysis (start rows = {start_rows})")
+
+    for raw_col, condition in filters.items():
+        col = normalize_col(raw_col)
+
+        #Check column exists
+        if col not in working_df.columns:
+            raise ValueError(
+                f"Filter column not found: '{raw_col}'\n"
+                f"Available columns: {working_df.columns.tolist()}"
+            )
+
+        series = working_df[col].apply(normalize_value)
+        before = len(working_df)
+
+        #Apply filter (ALL operators here)
+        if isinstance(condition, dict):
+
+            if "in" in condition:
+                values = [normalize_value(v) for v in condition["in"]]
+                missing = set(values) - set(series.unique())
+
+                if missing:
+                    raise ValueError(
+                        f"Invalid filter values for '{raw_col}': {missing}\n"
+                        f"Valid examples: {sorted(series.unique())[:10]}"
+                    )
+
+                working_df = working_df[series.isin(values)]
+                desc = f"in {condition['in']}"
+
+            elif "neq" in condition:
+                value = normalize_value(condition["neq"])
+
+                if value not in set(series.unique()):
+                    raise ValueError(
+                        f"Invalid filter value '{condition['neq']}' "
+                        f"for column '{raw_col}'"
+                    )
+
+                working_df = working_df[series != value]
+                desc = f"!= {condition['neq']}"
+
+            elif "contains" in condition:
+                keyword = normalize_value(condition["contains"])
+
+                if not series.str.contains(keyword, na=False).any():
+                    raise ValueError(
+                        f"No rows contain '{condition['contains']}' "
+                        f"in column '{raw_col}'"
+                    )
+
+                working_df = working_df[series.str.contains(keyword, na=False)]
+                desc = f"contains '{condition['contains']}'"
+
+            else:
+                raise ValueError(
+                    f"Unsupported filter operator in column '{raw_col}': {condition}"
+                )
+
+        else:
+            value = normalize_value(condition)
+
+            if value not in set(series.unique()):
+                raise ValueError(
+                    f"Invalid filter value '{condition}' for column '{raw_col}'\n"
+                    f"Valid examples: {sorted(series.unique())[:10]}"
+                )
+
+            working_df = working_df[series == value]
+            desc = f"== {condition}"
+
+        after = len(working_df)
+
+        print(f"  • {raw_col} {desc}: {before} → {after}")
+
+        #Detect zero-row caused by THIS filter
+        if after == 0:
+            raise ValueError(
+                f"Filter '{raw_col} {desc}' caused result to be empty"
+            )
+
+    print("All filters validated successfully")
 
 
 
@@ -102,7 +232,14 @@ def run(template_path):
         df = df_master.copy()
 
         # Apply filter
+        analyze_filters(df, item.get("filter"))
         df = apply_filter(df, item.get("filter"))
+        if df.empty:
+            raise ValueError(
+                f"No data after filter for file '{item['file_name']}'.\n"
+                f"Filter used: {item.get('filter')}"
+            )
+
 
         # Normalize columns
         template_columns = [normalize_col(c) for c in item["columns"]]
@@ -120,7 +257,6 @@ def run(template_path):
         df.to_excel(output_path, index=False)
 
         print(f"    ✔ Rows: {len(df)} → {output_path}")
-
 
     # ---------- Entry ----------
 if __name__ == "__main__":

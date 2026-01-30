@@ -9,8 +9,8 @@ outputs:
       - Status
     filter:
       Company: BCP 
-      Status: Active
-      Core Application: N
+      Status: New
+      Core Application: Y
 
   - file_name: B.xlsx
     columns:
@@ -29,3 +29,22 @@ outputs:
     filter:
       Core Application: Y
       DB: MySQL 8
+
+  - file_name: D.xlsx
+    columns:
+      - Application Name
+      - Core Application
+      - Company
+    filter:
+      Application Name:
+        contains: data
+
+  - file_name: E.xlsx
+    columns:
+      - Application Name
+      - Core Application
+      - Company
+    filter:
+      Application Name:
+        contains: data
+        contains: Int
