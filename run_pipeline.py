@@ -89,23 +89,36 @@ def apply_filter(df, filters):
         series = df[col].apply(normalize_value)
 
         if isinstance(condition, dict):
+
+            # ---------- IN ----------
             if "in" in condition:
                 values = [normalize_value(v) for v in condition["in"]]
                 df = df[series.isin(values)]
 
+            # ---------- NOT EQUAL ----------
             elif "neq" in condition:
                 df = df[series != normalize_value(condition["neq"])]
 
-            elif "contains" in condition:
-                values = condition["contains"]
-
-                # Normalize to list
-                if not isinstance(values, list):
-                    values = [values]
+            # ---------- CONTAINS (AND) ----------
+            elif "contains" in condition or "contains_all" in condition:
+                values = condition.get("contains") or condition.get("contains_all")
+                values = values if isinstance(values, list) else [values]
 
                 for v in values:
                     keyword = normalize_value(v)
                     df = df[series.str.contains(keyword, na=False)]
+
+            # ---------- CONTAINS (OR) ----------
+            elif "contains_any" in condition:
+                values = condition["contains_any"]
+                values = values if isinstance(values, list) else [values]
+
+                mask = False
+                for v in values:
+                    keyword = normalize_value(v)
+                    mask = mask | series.str.contains(keyword, na=False)
+
+                df = df[mask]
 
             else:
                 raise ValueError(
@@ -131,7 +144,6 @@ def analyze_filters(df, filters):
     for raw_col, condition in filters.items():
         col = normalize_col(raw_col)
 
-        #Check column exists
         if col not in working_df.columns:
             raise ValueError(
                 f"Filter column not found: '{raw_col}'\n"
@@ -141,22 +153,22 @@ def analyze_filters(df, filters):
         series = working_df[col].apply(normalize_value)
         before = len(working_df)
 
-        #Apply filter (ALL operators here)
         if isinstance(condition, dict):
 
+            # ---------- IN ----------
             if "in" in condition:
                 values = [normalize_value(v) for v in condition["in"]]
                 missing = set(values) - set(series.unique())
 
                 if missing:
                     raise ValueError(
-                        f"Invalid filter values for '{raw_col}': {missing}\n"
-                        f"Valid examples: {sorted(series.unique())[:10]}"
+                        f"Invalid filter values for '{raw_col}': {missing}"
                     )
 
                 working_df = working_df[series.isin(values)]
                 desc = f"in {condition['in']}"
 
+            # ---------- NOT EQUAL ----------
             elif "neq" in condition:
                 value = normalize_value(condition["neq"])
 
@@ -169,11 +181,10 @@ def analyze_filters(df, filters):
                 working_df = working_df[series != value]
                 desc = f"!= {condition['neq']}"
 
-            elif "contains" in condition:
-                values = condition["contains"]
-
-                if not isinstance(values, list):
-                    values = [values]
+            # ---------- CONTAINS (AND) ----------
+            elif "contains" in condition or "contains_all" in condition:
+                values = condition.get("contains") or condition.get("contains_all")
+                values = values if isinstance(values, list) else [values]
 
                 for v in values:
                     keyword = normalize_value(v)
@@ -190,6 +201,26 @@ def analyze_filters(df, filters):
 
                 desc = f"contains ALL {values}"
 
+            # ---------- CONTAINS (OR) ----------
+            elif "contains_any" in condition:
+                values = condition["contains_any"]
+                values = values if isinstance(values, list) else [values]
+
+                if not any(
+                    series.str.contains(normalize_value(v), na=False).any()
+                    for v in values
+                ):
+                    raise ValueError(
+                        f"No rows contain any of {values} in column '{raw_col}'"
+                    )
+
+                mask = False
+                for v in values:
+                    mask = mask | series.str.contains(normalize_value(v), na=False)
+
+                working_df = working_df[mask]
+                desc = f"contains ANY {values}"
+
             else:
                 raise ValueError(
                     f"Unsupported filter operator in column '{raw_col}': {condition}"
@@ -200,18 +231,15 @@ def analyze_filters(df, filters):
 
             if value not in set(series.unique()):
                 raise ValueError(
-                    f"Invalid filter value '{condition}' for column '{raw_col}'\n"
-                    f"Valid examples: {sorted(series.unique())[:10]}"
+                    f"Invalid filter value '{condition}' for column '{raw_col}'"
                 )
 
             working_df = working_df[series == value]
             desc = f"== {condition}"
 
         after = len(working_df)
-
         print(f"  • {raw_col} {desc}: {before} → {after}")
 
-        #Detect zero-row caused by THIS filter
         if after == 0:
             raise ValueError(
                 f"Filter '{raw_col} {desc}' caused result to be empty"

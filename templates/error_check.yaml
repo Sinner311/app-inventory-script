@@ -49,3 +49,21 @@ outputs:
         contains:
           - Ana
           - B
+
+  - file_name: F.xlsx
+    columns:
+      - Application Name
+      - Core Application
+      - Company
+    filter:
+      Application Name:
+        contains_all: [data, sphere]
+  
+  - file_name: G.xlsx
+    columns:
+      - Application Name
+      - Core Application
+      - Company
+    filter:
+      Application Name:
+        contains_any: [data, int]
