@@ -46,5 +46,6 @@ outputs:
       - Company
     filter:
       Application Name:
-        contains: data
-        contains: Int
+        contains:
+          - Ana
+          - B

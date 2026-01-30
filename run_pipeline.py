@@ -97,8 +97,15 @@ def apply_filter(df, filters):
                 df = df[series != normalize_value(condition["neq"])]
 
             elif "contains" in condition:
-                keyword = normalize_value(condition["contains"])
-                df = df[series.str.contains(keyword, na=False)]
+                values = condition["contains"]
+
+                # Normalize to list
+                if not isinstance(values, list):
+                    values = [values]
+
+                for v in values:
+                    keyword = normalize_value(v)
+                    df = df[series.str.contains(keyword, na=False)]
 
             else:
                 raise ValueError(
@@ -163,16 +170,25 @@ def analyze_filters(df, filters):
                 desc = f"!= {condition['neq']}"
 
             elif "contains" in condition:
-                keyword = normalize_value(condition["contains"])
+                values = condition["contains"]
 
-                if not series.str.contains(keyword, na=False).any():
-                    raise ValueError(
-                        f"No rows contain '{condition['contains']}' "
-                        f"in column '{raw_col}'"
-                    )
+                if not isinstance(values, list):
+                    values = [values]
 
-                working_df = working_df[series.str.contains(keyword, na=False)]
-                desc = f"contains '{condition['contains']}'"
+                for v in values:
+                    keyword = normalize_value(v)
+
+                    if not series.str.contains(keyword, na=False).any():
+                        raise ValueError(
+                            f"No rows contain '{v}' in column '{raw_col}'"
+                        )
+
+                    working_df = working_df[
+                        working_df[col].apply(normalize_value)
+                        .str.contains(keyword, na=False)
+                    ]
+
+                desc = f"contains ALL {values}"
 
             else:
                 raise ValueError(
